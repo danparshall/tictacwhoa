@@ -1,6 +1,7 @@
 import numpy as np
 import re
 import random
+from collections import Counter
 
 class TttGame():
     __class__ = "Tic-tac-toe Game"   # __class__ property of an instance
@@ -24,7 +25,7 @@ class TttGame():
 
     def receive_input(self):
         is_waiting = True
-        x,y = self.current_player.give_input(self)
+        x,y = self.current_player.give_input(self) # the current player receives the current game as input
         if (x,y) in self.legal_moves:
             self.legal_moves.remove((x,y))
             self.board[x, y] = self.current_marker
@@ -85,6 +86,7 @@ class TttGame():
             print("Game has finished, start another.")
 
 
+
 class TttPlayer():
     def __init__(self, player_name):
         self.unique_name = player_name
@@ -102,7 +104,6 @@ class TttPlayer():
 
 
 class TttHuman(TttPlayer):
-
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)  # inherit TttPlayer's "__init__"
         self.re_player_input = re.compile(r"^([0-2]{1})[, ]+([0-2]{1})$")
@@ -163,73 +164,80 @@ class TttHeuristic(TttPlayer):
         self.__name__ = "Heuristic Bot (Intelligence {0}): {1}".format(self.INTELLIGENCE, self.unique_name)
         print("Starting", self.__name__)
 
-    def _check_diagonals(self, game, marker):
+    def _check_diag(self, board, marker, direction):
         win_row = np.nan
         win_col = np.nan
-        dmain = game.board[(0, 1, 2), (0, 1, 2)]
-        dorth = game.board[(0, 1, 2), (2, 1, 0)]
-        if (np.isnan(dmain).sum() == 1) & ((dmain == marker).sum() == 2):
-            # win on main diagonal
-            for idx in (0,1,2):
-                if np.isnan(dmain[idx]):
-                    win_row = idx
-                    win_col = idx
-                    break
-        elif (np.isnan(dorth).sum() == 1) & ((dorth == marker).sum() == 2):
-            # win on counter-diagonal
-            for idx in (0, 1, 2):
-                if np.isnan(dorth[idx]):
-                    win_row = idx
-                    win_col = 2 - idx
-                    break
+        if direction == "main":
+            board_diag = board[(0, 1, 2), (0, 1, 2)]
+        elif direction == "orth":
+            board_diag = board[(0, 1, 2), (2, 1, 0)]
+        else:
+            print("What kind of diagonal is this?")
+
+        if (np.isnan(board_diag).sum() == 1) & ((board_diag == marker).sum() == 2):
+            win_row = np.where(np.isnan(board_diag))[0][0]  # we know exactly 1 of these is a nan
+            if direction == "main":
+                win_col = win_row
+            elif direction == "orth":
+                win_col = 2 - win_row
         return win_row, win_col
 
-    def _check_rows_and_cols(self, game, marker):
+    def _check_row(self, board, marker, idx_row):
         win_row = np.nan
         win_col = np.nan
-
-        # we need to have exactly one empty/nan space, and the other two of our marker
-        nans_per_col = np.isnan(game.board).sum(axis=0)
-        marks_per_col = (game.board == marker).sum(axis=0)
-        poss_cols = (nans_per_col == 1) & (marks_per_col == 2)
-
-        nans_per_row = np.isnan(game.board).sum(axis=1)
-        marks_per_row = (game.board == marker).sum(axis=1)
-        poss_rows = (nans_per_row == 1) & (marks_per_row == 2)
-
-        if poss_rows.any():
-            for irow, rowval in enumerate(poss_rows):
-                if rowval:
-                    win_row = irow
-                    break
-            for icol, colval in enumerate(game.board[win_row, :]):
-                if np.isnan(colval):
-                    # when the current col is empty, place marker there
-                    win_col = icol
-                    break
-        elif poss_cols.any():
-            for icol, colval in enumerate(poss_cols):
-                if colval:
-                    win_col = icol
-                    break
-            for irow, rowval in enumerate(game.board[:, win_col]):
-                if np.isnan(rowval):
-                    win_row = irow
-                    break
+        check = board[idx_row, :]
+        if (np.isnan(check).sum() == 1) & ((check == marker).sum() == 2):
+            win_row = idx_row
+            win_col = np.where(np.isnan(check))[0][0]
         return win_row, win_col
 
+    def _check_col(self, board, marker, idx_col):
+        win_row = np.nan
+        win_col = np.nan
+        check = board[:, idx_col]
+        if (np.isnan(check).sum() == 1) & ((check == marker).sum() == 2):
+            win_col = idx_col
+            win_row = np.where(np.isnan(check))[0][0]
+        return win_row, win_col
 
-    def _check_for_possible_wins(self, game, marker):
-        # first check the diagonals
-        win_row, win_col = self._check_diagonals(game, marker)
-        if (win_row >= 0) and (win_col >= 0):
-            return win_row, win_col
-        # next try rows/cols
-        win_row, win_col = self._check_rows_and_cols(game, marker)
-        if (win_row >= 0) and (win_col >= 0):
-            return win_row, win_col
+    def _find_winning_plays(self, board, marker):
+        winning_plays = []
+        for dir in ["main", "orth"]:
+            (wr, wc) = self._check_diag(board, marker, dir)
+            if not np.isnan(wr):
+                winning_plays.append((wr,wc))
+        for idx_row in (0,1,2):
+            (wr, wc) = self._check_row(board, marker, idx_row)
+            if not np.isnan(wr):
+                winning_plays.append((wr,wc))
+        for idx_col in (0,1,2):
+            (wr, wc) = self._check_col(board, marker, idx_row)
+            if not np.isnan(wr):
+                winning_plays.append((wr,wc))
+        return winning_plays
+
+    def _check_for_possible_wins(self, board, marker):
+        winning_plays = self._find_winning_plays(board, marker)
+        if len(winning_plays) > 0:
+            return winning_plays.pop()
         # if no potential wins
         return np.nan, np.nan
+
+    def _check_forks(self, game, marker, legal_moves):
+        """" Can have max of 1 fork when players greedily take wins. """
+        board = game.board
+        forks = []
+        for move in legal_moves:
+            possible_board = board.copy()
+            possible_board[move] = marker
+            winning_plays = self._find_winning_plays(possible_board, marker)
+            if len(winning_plays) > 1:
+#                if fork:
+#                    print("WE HAVE A DOUBLE FORK!", fork, move, game.history)
+                forks.append(move)
+#        if fork is None:
+#            fork = (np.nan, np.nan)
+        return forks
 
     def give_input(self, game):
         """ HeuristicBot can be set smarter or stoopider using INTELLIGENCE parameter
@@ -239,14 +247,20 @@ class TttHeuristic(TttPlayer):
         """
         if self.INTELLIGENCE >= 1:
         # return win if possible
-            win_row, win_col = self._check_for_possible_wins(game, game.current_marker)
+            win_row, win_col = self._check_for_possible_wins(game.board, game.current_marker)
             if (win_row >= 0) and (win_col >= 0):
                 return win_row, win_col
         if self.INTELLIGENCE >= 2:
         # return block if posible
-            block_row, block_col = self._check_for_possible_wins(game, -1*game.current_marker)
+            block_row, block_col = self._check_for_possible_wins(game.board, -1*game.current_marker)
             if (block_row >= 0) and (block_col >= 0):
                 return block_row, block_col
+        if self.INTELLIGENCE >= 3:
+            forks = self._check_forks(game, game.current_marker, game.legal_moves)
+            if len(forks) > 0:
+                return forks.pop()
+#            if (fork_row >= 0) and (fork_col >= 0):
+#                return fork_row, fork_col
         # else return random legal move
         return random.choice(game.legal_moves)
 
@@ -267,17 +281,40 @@ if False:
     print(wr, wc)
     print(game.board)
 elif False:
+    p1 = TttHuman("hum1")
+    b1 = TttHeuristic("bot");
+    game = TttGame(p1, b1)
+
+    # Hypothetical fork scenario
+    game.board[0,0] = 1
+    game.board[2,2] = -1
+    game.board[2,0] = 1
+    game.board[1,0] = -1
+    game.legal_moves.remove((0,0))
+    game.legal_moves.remove((2,2))
+    game.legal_moves.remove((2,0))
+    game.legal_moves.remove((1,0))
+#    game.receive_input((0,0))
+#    game.change_player()
+#    game.receive_input((2,2))
+#    game.change_player()
+#    game.receive_input((2,0))
+#    game.change_player()
+#    game.receive_input((1,2))
+
+
+elif False:
     p1 = TttHuman("Dan")
     b1 = TttHeuristic("bot")
 #    game = TttGame(p1, b1)
 #    game.play()
-elif True:
+elif False:
     # autobots
     b1 = TttHeuristic("bot1")
     b2 = TttHeuristic("bot2")
     autogames = []
 
-    for idx in range(1000):
+    for idx in range(100):
         game = TttGame(b1,b2)
         game.play()
         autogames.append(game)
@@ -294,3 +331,39 @@ elif True:
             if (check.board == ref.board).all(): 
                 identical += 1
                 print("{0} out of {1} boards are identical".format(identical, idx+1))
+elif True:
+    # Battle bots\
+    b1 = TttHeuristic("bot1")
+    b2 = TttHeuristic("bot2")
+    b1.INTELLIGENCE = 2
+    b2.INTELLIGENCE = 3
+
+    autogames = []
+    wins_b1 = 0
+    wins_b2 = 0
+    for idx in range(10000):
+        game = TttGame(b1, b2)
+        game.play()
+        autogames.append(game)
+        if game.winning_player == b1:
+            wins_b1 += 1
+        elif game.winning_player == b2:
+            wins_b2 += 1
+        else:
+            pass
+    print(wins_b1, wins_b2)
+elif True:
+    # troublshoot
+    b2 = TttHeuristic("bot_iq2")
+    b3 = TttHeuristic("bot_iq3")
+    b2.INTELLIGENCE = 2
+    b3.INTELLIGENCE = 3
+    game = TttGame(b2, b3)
+    game.board[0,2] = 1
+    game.legal_moves.remove((0,2))
+    game.board[2,1] = -1
+    game.legal_moves.remove((2,1))
+    game.board[2,2] = 1
+    game.legal_moves.remove((2,2))
+    game.board[1,2] = -1
+    game.legal_moves.remove((1,2))
