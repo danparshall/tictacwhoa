@@ -73,9 +73,9 @@ class TttGame():
                 # defines the winning player.  Player objects can check for themselves if they won
                 self.winning_player = self.current_player
             elif np.isnan(self.board).sum() == 0:
-                # draw if all boxes filled without winner
+                # game is a draw if all boxes filled without winner
 #                print("The game was a Draw")
-                self.winning_player = np.nan
+                pass # winning_player remains None
             else: 
                 self.change_player()
                 self.play()
