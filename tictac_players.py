@@ -8,8 +8,25 @@ class TttPlayer():
         self.unique_name = player_name
         print("Initializing {0}".format(self.unique_name))
 
-    def examine_board(self, game):
-        pass
+    def _make_char(self, marker):
+        if marker == 1:
+            return "X"
+        elif marker == -1:
+            return "O"
+        else:
+            return " "
+
+    def _print_row(self, board, n_row):
+        chars = [self._make_char(m) for m in board[n_row,:]]
+        print(" {0} | {1} | {2} ".format(*chars))
+
+    def _print_board(self, game):
+        print("\n")
+        self._print_row(game.board, 0)
+        print("-----------")
+        self._print_row(game.board, 1)
+        print("-----------")
+        self._print_row(game.board, 2)
 
     def give_input(self, game):
         return (np.nan, np.nan)
@@ -25,41 +42,19 @@ class TttHuman(TttPlayer):
         self.re_player_input = re.compile(r"^([0-2]{1})[, ]+([0-2]{1})$")
         self.__name__ = "Human Player: {0}".format(self.unique_name)
 
-    def _make_marker(self, char):
-        if char == 1:
-            return "X"
-        elif char == -1:
-            return "O"
-        else:
-            return " "
-
-    def _print_row(self, board, n_row):
-        chars = [self._make_marker(c) for c in board[n_row,:]]
-        print(" {0} | {1} | {2} ".format(*chars))
-
-    def _print_board(self, game):
-        print("\n")
-        self._print_row(game.board, 0)
-        print("-----------")
-        self._print_row(game.board, 1)
-        print("-----------")
-        self._print_row(game.board, 2)
-
-    def examine_board(self, game):
-        self._print_board(game)
-
     def give_input(self, game):
+        self._print_board(game)
         run = True
         while run:
             if game.current_player == game.p1:
-                marker = "X"
+                icon = "X"
             elif game.current_player == game.p2:
-                marker = "O"
+                icon = "O"
             else:
-                marker = np.nan
+                icon = np.nan
                 print("WTF, are you an X or an O?")
 
-            player_input = input("Choose x,y coordinates to place marker for {0}: ".format(marker))
+            player_input = input("Choose x,y coordinates to place icon for {0}: ".format(icon))
             player_choice = self.re_player_input.search(player_input)
             if not player_choice:
                 print("Please try again; you must choose x,y coordinates from 0-2")
