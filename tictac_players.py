@@ -51,8 +51,7 @@ class TttHuman(TttPlayer):
             elif game.current_player == game.p2:
                 icon = "O"
             else:
-                icon = np.nan
-                print("WTF, are you an X or an O?")
+                raise ValueError("Are you an X or an O?")
 
             player_input = input("Choose x,y coordinates to place icon for {0}: ".format(icon))
             player_choice = self.re_player_input.search(player_input)
@@ -82,7 +81,7 @@ class TttHeuristic(TttPlayer):
         elif direction == "orth":
             board_diag = board[(0, 1, 2), (2, 1, 0)]
         else:
-            print("What kind of diagonal is this?")
+            raise ValueError("What kind of diagonal is this?")
 
         if (np.isnan(board_diag).sum() == 1) & ((board_diag == marker).sum() == 2):
             win_row = np.where(np.isnan(board_diag))[0][0]  # we know exactly 1 of these is a nan
