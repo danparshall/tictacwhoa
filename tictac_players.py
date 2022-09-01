@@ -73,76 +73,69 @@ class TttHuman(TttPlayer):
 
 
 class TttHeuristic(TttPlayer):
+
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)  # inherit TttPlayer's "__init__"
         self.INTELLIGENCE = 1
         self.__name__ = "Heuristic Bot (Intelligence {0}): {1}".format(self.INTELLIGENCE, self.unique_name)
         print("Starting", self.__name__)
 
-    def _check_diagonals(self, game, marker):
+    def _check_diag(self, board, marker, direction):
         win_row = np.nan
         win_col = np.nan
-        dmain = game.board[(0, 1, 2), (0, 1, 2)]
-        dorth = game.board[(0, 1, 2), (2, 1, 0)]
-        if (np.isnan(dmain).sum() == 1) & ((dmain == marker).sum() == 2):
-            # win on main diagonal
-            for idx in (0,1,2):
-                if np.isnan(dmain[idx]):
-                    win_row = idx
-                    win_col = idx
-                    break
-        elif (np.isnan(dorth).sum() == 1) & ((dorth == marker).sum() == 2):
-            # win on counter-diagonal
-            for idx in (0, 1, 2):
-                if np.isnan(dorth[idx]):
-                    win_row = idx
-                    win_col = 2 - idx
-                    break
+        if direction == "main":
+            board_diag = board[(0, 1, 2), (0, 1, 2)]
+        elif direction == "orth":
+            board_diag = board[(0, 1, 2), (2, 1, 0)]
+        else:
+            print("What kind of diagonal is this?")
+
+        if (np.isnan(board_diag).sum() == 1) & ((board_diag == marker).sum() == 2):
+            win_row = np.where(np.isnan(board_diag))[0][0]  # we know exactly 1 of these is a nan
+            if direction == "main":
+                win_col = win_row
+            elif direction == "orth":
+                win_col = 2 - win_row
         return win_row, win_col
 
-    def _check_rows_and_cols(self, game, marker):
+    def _check_row(self, board, marker, idx_row):
         win_row = np.nan
         win_col = np.nan
-
-        # we need to have exactly one empty/nan space, and the other two of our marker
-        nans_per_col = np.isnan(game.board).sum(axis=0)
-        marks_per_col = (game.board == marker).sum(axis=0)
-        poss_cols = (nans_per_col == 1) & (marks_per_col == 2)
-
-        nans_per_row = np.isnan(game.board).sum(axis=1)
-        marks_per_row = (game.board == marker).sum(axis=1)
-        poss_rows = (nans_per_row == 1) & (marks_per_row == 2)
-
-        if poss_rows.any():
-            for irow, rowval in enumerate(poss_rows):
-                if rowval:
-                    win_row = irow
-                    break
-            for icol, colval in enumerate(game.board[win_row, :]):
-                if np.isnan(colval):
-                    # when the current col is empty, place marker there
-                    win_col = icol
-                    break
-        elif poss_cols.any():
-            for icol, colval in enumerate(poss_cols):
-                if colval:
-                    win_col = icol
-                    break
-            for irow, rowval in enumerate(game.board[:, win_col]):
-                if np.isnan(rowval):
-                    win_row = irow
-                    break
+        check = board[idx_row, :]
+        if (np.isnan(check).sum() == 1) & ((check == marker).sum() == 2):
+            win_row = idx_row
+            win_col = np.where(np.isnan(check))[0][0]
         return win_row, win_col
 
-    def _check_for_possible_wins(self, game, marker):
-        # first check the diagonals
-        win_row, win_col = self._check_diagonals(game, marker)
-        if (win_row >= 0) and (win_col >= 0):
-            return win_row, win_col
-        # next try rows/cols
-        win_row, win_col = self._check_rows_and_cols(game, marker)
-        if (win_row >= 0) and (win_col >= 0):
-            return win_row, win_col
+    def _check_col(self, board, marker, idx_col):
+        win_row = np.nan
+        win_col = np.nan
+        check = board[:, idx_col]
+        if (np.isnan(check).sum() == 1) & ((check == marker).sum() == 2):
+            win_col = idx_col
+            win_row = np.where(np.isnan(check))[0][0]
+        return win_row, win_col
+
+    def _find_winning_plays(self, board, marker):
+        winning_plays = []
+        for dir in ["main", "orth"]:
+            (wr, wc) = self._check_diag(board, marker, dir)
+            if not np.isnan(wr):
+                winning_plays.append((wr,wc))
+        for idx_row in (0,1,2):
+            (wr, wc) = self._check_row(board, marker, idx_row)
+            if not np.isnan(wr):
+                winning_plays.append((wr,wc))
+        for idx_col in (0,1,2):
+            (wr, wc) = self._check_col(board, marker, idx_row)
+            if not np.isnan(wr):
+                winning_plays.append((wr,wc))
+        return winning_plays
+
+    def _check_for_possible_wins(self, board, marker):
+        winning_plays = self._find_winning_plays(board, marker)
+        if len(winning_plays) > 0:
+            return winning_plays.pop()
         # if no potential wins
         return np.nan, np.nan
 
