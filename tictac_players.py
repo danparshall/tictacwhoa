@@ -73,7 +73,6 @@ class TttHuman(TttPlayer):
 
 
 class TttHeuristic(TttPlayer):
-
     def __init__(self, *args, **kwargs):
         super(self.__class__, self).__init__(*args, **kwargs)  # inherit TttPlayer's "__init__"
         self.INTELLIGENCE = 1
@@ -140,7 +139,6 @@ class TttHeuristic(TttPlayer):
         return np.nan, np.nan
 
     def _check_forks(self, game, marker, legal_moves):
-        """" Can have max of 1 fork when players greedily take wins. """
         board = game.board
         forks = []
         for move in legal_moves:
@@ -156,6 +154,7 @@ class TttHeuristic(TttPlayer):
         At INTELLIGENCE == 0; returns a random legal move
         At INTELLIGENCE == 1; returns a win if possible, else a random legal move
         At INTELLIGENCE == 2; returns a win if possible, else a block, else a random legal move
+        At INTELLIGENCE == 3; returns a win, then block, then fork, or else a random legal move
         """
         if self.INTELLIGENCE >= 1:
         # return win if possible
@@ -163,11 +162,12 @@ class TttHeuristic(TttPlayer):
             if (win_row >= 0) and (win_col >= 0):
                 return win_row, win_col
         if self.INTELLIGENCE >= 2:
-        # return block if posible
+        # return block if possible
             block_row, block_col = self._check_for_possible_wins(game.board, -1*game.current_marker)
             if (block_row >= 0) and (block_col >= 0):
                 return block_row, block_col
         if self.INTELLIGENCE >= 3:
+        # return fork if possible
             forks = self._check_forks(game, game.current_marker, game.legal_moves)
             if len(forks) > 0:
                 return forks.pop()   # no discrimination between forks
