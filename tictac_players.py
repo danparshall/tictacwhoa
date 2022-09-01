@@ -146,6 +146,18 @@ class TttHeuristic(TttPlayer):
         # if no potential wins
         return np.nan, np.nan
 
+    def _check_forks(self, game, marker, legal_moves):
+        """" Can have max of 1 fork when players greedily take wins. """
+        board = game.board
+        forks = []
+        for move in legal_moves:
+            possible_board = board.copy()
+            possible_board[move] = marker
+            winning_plays = self._find_winning_plays(possible_board, marker)
+            if len(winning_plays) > 1:
+                forks.append(move)
+        return forks
+
     def give_input(self, game):
         """ HeuristicBot can be set smarter or stoopider using INTELLIGENCE parameter
         At INTELLIGENCE == 0; returns a random legal move
@@ -154,13 +166,17 @@ class TttHeuristic(TttPlayer):
         """
         if self.INTELLIGENCE >= 1:
         # return win if possible
-            win_row, win_col = self._check_for_possible_wins(game, game.current_marker)
+            win_row, win_col = self._check_for_possible_wins(game.board, game.current_marker)
             if (win_row >= 0) and (win_col >= 0):
                 return win_row, win_col
         if self.INTELLIGENCE >= 2:
         # return block if posible
-            block_row, block_col = self._check_for_possible_wins(game, -1*game.current_marker)
+            block_row, block_col = self._check_for_possible_wins(game.board, -1*game.current_marker)
             if (block_row >= 0) and (block_col >= 0):
                 return block_row, block_col
+        if self.INTELLIGENCE >= 3:
+            forks = self._check_forks(game, game.current_marker, game.legal_moves)
+            if len(forks) > 0:
+                return forks.pop()   # no discrimination between forks
         # else return random legal move
         return random.choice(game.legal_moves)
